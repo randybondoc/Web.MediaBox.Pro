@@ -65,10 +65,11 @@
             bottom: 0;
             left: 0;
             right: 0;
-            background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+            background: linear-gradient(to top, var(--control-bg-color) 0%, transparent 100%);
             display: flex;
             flex-direction: column;
             z-index: 10;
+            visibility: hidden;
             opacity: 0;
             transition: opacity 0.3s ease-in-out;
             pointer-events: none;
@@ -78,6 +79,7 @@
             padding-left: calc(10px + env(safe-area-inset-left));
         }
         #player-container.controls-active .controls {
+            visibility: visible;
             opacity: 1;
             pointer-events: all;
         }
@@ -230,7 +232,7 @@
                         </button>
                         <button id="next-btn" class="control-button" title="Next">&#9193;</button>
                         <div class="volume-container">
-                            <button id="mute-btn" class="control-button" title="Mute/Unmute">&#128266;</button>
+                            <button id="mute-btn" class="control-button" title="Mute/Unmute">&#128263;</button>
                             <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="1">
                         </div>
                         <span id="time-display">00:00:00 / 00:00:00</span>
@@ -334,8 +336,9 @@ const playVideoAtIndex = (index) => {
 };
 
 const showControls = () => {
-    playerContainer.classList.add('controls-active');
     clearTimeout(controlsTimeout);
+    playerContainer.classList.add('controls-active');
+
     if (!video.paused) {
         controlsTimeout = setTimeout(() => {
             playerContainer.classList.remove('controls-active');
@@ -375,7 +378,7 @@ video.addEventListener('play', () => {
 video.addEventListener('pause', () => {
     playPauseIcon.style.fill = 'var(--play-color)';
     playPauseIcon.innerHTML = '<path d="M12,10 L26,18 L12,26 Z"></path>';
-    playerContainer.classList.add('controls-active');
+    playerContainer.classList.add('controls-active'); 
     clearTimeout(controlsTimeout);
 });
 video.addEventListener('ended', () => {
@@ -610,7 +613,9 @@ gestureOverlay.addEventListener('click', (e) => {
     } else { // Single tap
         clearTimeout(tapTimeout);
         tapTimeout = setTimeout(() => {
-            playPauseBtn.click();
+            // REVISED: Call showControls directly on single tap to make controls visible
+            showControls(); 
+            playPauseBtn.click(); // Still toggle play/pause on single tap
         }, 300);
     }
     lastTap = currentTime;
