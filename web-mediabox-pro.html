@@ -555,6 +555,10 @@ exitControl.addEventListener('click', () => {
 
 // --- GESTURE & OVERLAY CONTROL LOGIC ---
 videoContainer.addEventListener('mousemove', showControls);
+// REVISED: Add touchstart listeners for mobile visibility
+videoContainer.addEventListener('touchstart', showControls); 
+gestureOverlay.addEventListener('touchstart', showControls); 
+
 let feedbackTimeout;
 function showFeedback(icon, text) {
     feedbackIcon.innerHTML = icon;
@@ -613,9 +617,10 @@ gestureOverlay.addEventListener('click', (e) => {
     } else { // Single tap
         clearTimeout(tapTimeout);
         tapTimeout = setTimeout(() => {
-            // REVISED: Call showControls directly on single tap to make controls visible
+            // Ensure controls are visible on single tap
             showControls(); 
-            playPauseBtn.click(); // Still toggle play/pause on single tap
+            // Toggle play/pause
+            playPauseBtn.click(); 
         }, 300);
     }
     lastTap = currentTime;
