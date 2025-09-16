@@ -1,8 +1,6 @@
 <div align="center">
   <img src="logo.png" alt="Web.MediaBox.Pro Logo" width="600">
   <br>
-  [![Version](https://img.shields.io/badge/Version-v1.3.0-blue.svg)](https://github.com/randysbondoc/Web.MediaBox.Pro)
-  [![GitHub Pages](https://github.com/randysbondoc/Web.MediaBox.Pro/actions/workflows/pages/pages-build-deployment/badge.svg)](https://github.com/randysbondoc/Web.MediaBox.Pro/actions/workflows/pages/pages-build-deployment)
 </div>
 
 <div align="center">
