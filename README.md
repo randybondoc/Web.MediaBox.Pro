@@ -1,4 +1,8 @@
 <div align="center">
+  <img src="logo.png" alt="Web.MediaBox.Pro Logo" width="600">
+</div>
+
+<div align="center">
 
 # 🎬 Web.MediaBox.Pro 🚀
 
@@ -24,17 +28,18 @@ Dive into a feature set designed to make you fall in love with watching videos a
 * ⏯️ **Full Playback Suite**: Every control you need is right at your fingertips. Enjoy a dynamic Play/Pause button, Next/Previous controls for your playlist, a clickable seek bar for instant navigation, and a clear `hh:mm:ss` time display.
 
 * 📱 **Advanced Gesture Controls**: On mobile, the player comes alive with intuitive gestures:
-    * **Brightness**: Swipe up/down on the left side of the screen.
-    * **Volume**: Swipe up/down on the right side of the screen.
-    * **Seek**: Double-tap the left or right side to jump backward or forward 10 seconds.
+    * ☀️ **Brightness**: Swipe up/down on the left side of the screen.
+    * 🔉 **Volume**: Swipe up/down on the right side of the screen.
+    * ⏩ **Seek**: Double-tap the left or right side to jump backward or forward 10 seconds.
+    * ▶️ **Play/Pause**: A simple single tap on the screen toggles playback.
 
 * ⚙️ **Powerful Settings Menu**: A clean, centralized hub for all power-user features:
-    * **Playlist Manager**: Don't just watch one video—create a queue! Load multiple files and the player will automatically play through them in sequence.
-    * **Picture-in-Picture (PiP)**: Pop the video out into a floating window that stays on top of your other work. Perfect for watching while you work.
-    * **Screen Orientation Lock**: Take control of your mobile viewing by locking the screen to **Landscape** or **Portrait**.
-    * **Audio Track Selection**: Does your video have multiple languages or commentary? The player auto-detects them and lets you switch on the fly.
-    * **Playback Speed Control**: Speed up lectures or slow down the action with a dedicated menu for multiple playback speeds.
-    * **Full Subtitle Support**: Load your own **`.vtt`** or **`.srt`** subtitle files to enjoy content in any language.
+    * 🎶 **Playlist Manager**: Don't just watch one video—create a queue! Load multiple files and the player will automatically play through them in sequence.
+    * 🖼️ **Picture-in-Picture (PiP)**: Pop the video out into a floating window that stays on top of your other work. Perfect for watching while you work.
+    * 🔄 **Screen Orientation Lock**: Take control of your mobile viewing by locking the screen to **Landscape** or **Portrait**.
+    * 🎙️ **Audio Track Selection**: Does your video have multiple languages or commentary? The player auto-detects them and lets you switch on the fly.
+    * 🚀 **Playback Speed Control**: Speed up lectures or slow down the action with a dedicated menu for multiple playback speeds.
+    * 💬 **Full Subtitle Support**: Load your own **`.vtt`** or **`.srt`** subtitle files to enjoy content in any language.
 
 * 🧠 **Smart Error Handling**: If you try to play an unsupported file, the app won't just fail silently. It gives you a clear, helpful message explaining the problem.
 
@@ -58,21 +63,26 @@ Dive into a feature set designed to make you fall in love with watching videos a
 ---
 ## 🤔 Why Use This App?
 
-Compared to native apps like VLC or MX Player, Web.MediaBox.Pro's killer feature is its **independent volume control**. While those excellent apps are tied to your system's master "Media Volume," our player exists in its own sandboxed environment, giving you a level of audio freedom that is simply not possible elsewhere.
-
-Without this app, you're left juggling system volumes, unable to multitask your audio, and often missing the advanced features like `.srt` support or audio track selection that make for a truly great viewing experience. This app fills a unique gap, turning your browser into a desktop-class media powerhouse.
+> Compared to native apps like VLC or MX Player, Web.MediaBox.Pro's killer feature is its **independent volume control**. While those excellent apps are tied to your system's master "Media Volume," our player exists in its own sandboxed environment, giving you a level of audio freedom that is simply not possible elsewhere.
+>
+> Without this app, you're left juggling system volumes, unable to multitask your audio, and often missing the advanced features like `.srt` support or audio track selection that make for a truly great viewing experience. This app fills a unique gap, turning your browser into a desktop-class media powerhouse.
 
 ---
 ## 📋 Version History
 
 *This history is maintained with each new release.*
 
-#### **v1.2.0 - The Phoenix Release (Latest)**
-This is the first stable, feature-complete version of the app. This release focused on fixing all regressions and delivering a reliable, polished user experience with a full feature set.
-* **New:** Implemented a full suite of mobile **gesture controls** (swipe for volume/brightness, double-tap to seek).
+#### **v1.3.0 - The Polish & Flow Update (Latest)**
+This release focused on major UI/UX enhancements and layout stability, creating a much more intuitive and reliable experience, especially on mobile devices.
+* **New:** Implemented a full suite of mobile **gesture controls** (swipe for volume/brightness, double-tap to seek, single-tap to play/pause).
+* **New:** The controls now sit as an **auto-hiding overlay** on the video for a more immersive experience.
+* **Fix:** Resolved critical mobile layout bugs, ensuring the video and controls are never cropped or hidden by system UI on any device.
+* **Fix:** The player is now perfectly centered and scales correctly on all screen sizes and orientations.
+
+#### **v1.2.0 - The Phoenix Release**
+This was the first stable, feature-complete version. This release focused on fixing all regressions and delivering a reliable experience with a full feature set.
 * **New:** Overhauled the **Settings Menu** with a more logical order and new features.
 * **New:** Added "Show Video Name," "Create Playlist," and "Exit" functionality.
-* **Fix:** Resolved all critical layout bugs for a stable, responsive experience on mobile devices.
 * **Fix:** Corrected the clock to display in the standard `hh:mm:ss` format.
 
 #### **v0.8.0 - The Power User Update**
@@ -93,18 +103,17 @@ This is the first stable, feature-complete version of the app. This release focu
 ---
 ## 📥 How to Use
 
-Getting Started with Web.MediaBox.Pro
+Getting started is incredibly simple — no download required!
 
-Running the app is incredibly simple — no download required!
+Just open this link in any modern web browser (Chrome, Firefox, Edge, Safari):
 
-Open this link in any modern web browser (Chrome, Firefox, Edge, Safari):
-👉 Launch Web.MediaBox.Pro
+<div align="center">
 
-The player will load instantly in your browser.
+**[► Launch Web.MediaBox.Pro ◄](https://randysbondoc.github.io/Web.MediaBox.Pro/web-mediabox-pro.html)**
 
-Select a video file from your device or play directly from a URL.
+</div>
 
-That’s it — you’re ready to enjoy your videos!
+The player will load instantly. Select a video file from your device or play directly from a URL. That’s it!
 
 ---
 ## ✍️ About the Author
@@ -114,5 +123,3 @@ This app was designed and developed by **randybondoc**.
 I've been working hard to make this the best functioning app possible, one that provides a genuinely useful and immersive user experience.
 
 If you appreciate my work and find value in what this little app can do, feel free to **buy me a coffee**! ☕ Every bit of support helps fuel future updates and new projects. Thank you!
-
-</div>
