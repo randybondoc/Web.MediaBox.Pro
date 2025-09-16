@@ -93,14 +93,18 @@ This is the first stable, feature-complete version of the app. This release focu
 ---
 ## 📥 How to Use
 
-Getting started is incredibly simple:
+Getting Started with Web.MediaBox.Pro
 
-1.  Go to the official GitHub repository: **[https://github.com/randysbondoc](https://github.com/randysbondoc)**
-2.  Find the `web-mediabox-pro.html` file and download it to your device.
-3.  Locate the downloaded file on your computer or phone.
-4.  Open it using a modern web browser (like Chrome, Firefox, or Edge).
+Running the app is incredibly simple — no download required!
 
-That's it! The player will launch, ready for you to enjoy your video.
+Open this link in any modern web browser (Chrome, Firefox, Edge, Safari):
+👉 Launch Web.MediaBox.Pro
+
+The player will load instantly in your browser.
+
+Select a video file from your device or play directly from a URL.
+
+That’s it — you’re ready to enjoy your videos!
 
 ---
 ## ✍️ About the Author
