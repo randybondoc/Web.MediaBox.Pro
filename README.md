@@ -110,7 +110,7 @@ Just open this link in any modern web browser (Chrome, Firefox, Edge, Safari):
 
 <div align="center">
 
-**[► Launch Web.MediaBox.Pro ◄](https://randysbondoc.github.io/Web.MediaBox.Pro/web-mediabox-pro.html)**
+**[► Launch Web.MediaBox.Pro ◄](https://randybondoc.github.io/Web.MediaBox.Pro/web-mediabox-pro.html)**
 
 </div>
 
