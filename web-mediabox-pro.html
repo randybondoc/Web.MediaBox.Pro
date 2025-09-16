@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Web.MediaBox.Pro</title>
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --play-color: #2ecc71;
+            --background-color: #121212;
+            --surface-color: #1e1e1e;
+            --text-color: #f5f5f7;
+            --control-bg-color: rgba(30, 30, 30, 0.85);
+            --icon-color: #ffffff;
+        }
+        html { touch-action: manipulation; }
+        body, html {
+            margin: 0; padding: 0; width: 100%;
+            background-color: var(--background-color); color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex; align-items: center; justify-content: center; overflow: hidden;
+        }
+        body {
+            height: 100vh;
+        }
+        #player-container {
+            width: 100%;
+            height: 100%;
+            max-width: 1200px;
+            position: relative;
+            background-color: #000;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        #player-container:fullscreen { max-width: none; width: 100%; height: 100%; }
+        #video-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background-color: #000;
+            overflow: hidden;
+        }
+        video {
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: contain;
+        }
+        video::-webkit-media-controls { display: none !important; }
+
+        #file-picker-container {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            width: 100%; height: 100%; border: 2px dashed var(--primary-color);
+            box-sizing: border-box; border-radius: 12px; padding: 20px;
+        }
+        .picker-button {
+            background-color: var(--primary-color); color: var(--icon-color); padding: 12px 24px;
+            border-radius: 8px; cursor: pointer; font-weight: 600;
+            transition: background-color 0.2s ease; border: none; margin: 10px;
+        }
+        #video-file-input, #subtitle-file-input { display: none; }
+
+        .controls {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+            pointer-events: none;
+            /* REVISED: Using safe-area insets for better mobile display */
+            padding-top: 10px;
+            padding-right: calc(10px + env(safe-area-inset-right));
+            padding-bottom: calc(5px + env(safe-area-inset-bottom));
+            padding-left: calc(10px + env(safe-area-inset-left));
+        }
+        #player-container.controls-active .controls {
+            opacity: 1;
+            pointer-events: all;
+        }
+        .progress-bar-container {
+            width: 100%;
+            height: 5px;
+            background-color: rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+            margin-bottom: 5px;
+        }
+        #progress-bar {
+            width: 0%;
+            height: 100%;
+            background-color: var(--primary-color);
+            transition: width 0.1s linear;
+        }
+        .bottom-controls { display: flex; align-items: center; justify-content: space-between; }
+        .left-controls, .right-controls { display: flex; align-items: center; }
+        .control-button {
+            background: none; border: none; color: var(--icon-color); font-size: 24px;
+            cursor: pointer; padding: 5px; width: 40px; height: 40px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        #play-pause-btn svg { width: 32px; height: 32px; transition: fill 0.2s ease; }
+        .volume-container { display: flex; align-items: center; }
+        #volume-slider {
+            -webkit-appearance: none; appearance: none;
+            width: 80px; height: 5px; background: rgba(255, 255, 255, 0.3);
+            border-radius: 5px; outline: none; margin: 0 10px;
+        }
+        #volume-slider::-webkit-slider-thumb {
+            width: 15px; height: 15px; background: var(--icon-color);
+            border-radius: 50%; cursor: pointer;
+        }
+        #time-display { font-size: 14px; margin-left: 10px; user-select: none; white-space: nowrap; }
+
+        .menu {
+            position: absolute; 
+            /* REVISED: Using safe-area insets for menus as well */
+            bottom: calc(65px + env(safe-area-inset-bottom));
+            right: calc(10px + env(safe-area-inset-right));
+            background-color: var(--control-bg-color);
+            backdrop-filter: blur(5px); border-radius: 8px; padding: 10px; width: 220px; z-index: 20;
+            display: none;
+        }
+        .menu-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 8px; cursor: pointer; border-radius: 4px;
+        }
+        .menu-item:hover { background-color: rgba(255,255,255,0.1); }
+        .menu-separator {
+            border: none;
+            height: 1px;
+            background-color: rgba(255, 255, 255, 0.2);
+            margin: 8px 0;
+        }
+        #speed-menu, #orientation-menu, #audio-menu { width: 140px; }
+        #speed-menu .menu-item, #orientation-menu .menu-item, #audio-menu .menu-item { justify-content: center; }
+        #video-container { display: none; }
+
+        #gesture-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 5;
+        }
+        #feedback-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.6);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            font-size: 24px;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            z-index: 25;
+            pointer-events: none;
+        }
+        #feedback-icon {
+            font-size: 36px;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="player-container">
+        <div id="file-picker-container">
+            <h2>Web.MediaBox.Pro</h2>
+            <div>
+                <input type="file" id="video-file-input" accept="video/*" multiple>
+                <label for="video-file-input" class="picker-button">Select Video(s)</label>
+                <button id="url-button" class="picker-button">Play from URL</button>
+            </div>
+        </div>
+        <div id="video-container">
+            <video id="local-video" crossorigin="anonymous"></video>
+            <div id="gesture-overlay"></div>
+            <div id="feedback-indicator">
+                <span id="feedback-icon"></span>
+                <span id="feedback-text"></span>
+            </div>
+            <div id="settings-menu" class="menu">
+                <div class="menu-item" id="pip-control"><span>Picture-in-Picture</span><span>&gt;</span></div>
+                <div class="menu-item" id="speed-control"><span>Playback Speed</span><span id="speed-label">1x</span></div>
+                <div class="menu-item" id="repeat-control"><span>Repeat Playlist</span><span id="repeat-label">Off</span></div>
+                <hr class="menu-separator">
+                <div class="menu-item">
+                    <label for="subtitle-file-input" style="width:100%; cursor:pointer;"><span>Load Subtitles</span><span>&gt;</span></label>
+                    <input type="file" id="subtitle-file-input" accept=".vtt,.srt">
+                </div>
+                <hr class="menu-separator">
+                <div class="menu-item" id="show-name-control"><span>Show Video Name</span><span>&gt;</span></div>
+                <hr class="menu-separator">
+                <div class="menu-item" id="orientation-control"><span>Video Orientation</span><span id="orientation-label">Auto</span></div>
+                <hr class="menu-separator">
+                <div class="menu-item" id="create-playlist-control"><span>Create Playlist</span><span>&gt;</span></div>
+                <div class="menu-item" id="new-file-control"><span>New Video</span><span>&gt;</span></div>
+                <hr class="menu-separator">
+                <div class="menu-item" id="exit-control"><span>Exit</span><span>&gt;</span></div>
+                <div class="menu-item" id="audio-control" style="display: none;"><span>Audio Track</span><span id="audio-label">Default</span></div>
+            </div>
+            <div id="speed-menu" class="menu">
+                <div class="menu-item speed-option" data-speed="2">2x</div>
+                <div class="menu-item speed-option" data-speed="1.5">1.5x</div>
+                <div class="menu-item speed-option" data-speed="1.25">1.25x</div>
+                <div class="menu-item speed-option" data-speed="1">Normal</div>
+                <div class="menu-item speed-option" data-speed="0.75">0.75x</div>
+                <div class="menu-item speed-option" data-speed="0.5">0.5x</div>
+            </div>
+            <div id="orientation-menu" class="menu">
+                <div class="menu-item orientation-option" data-orientation="landscape">Landscape</div>
+                <div class="menu-item orientation-option" data-orientation="portrait">Portrait</div>
+                <div class="menu-item orientation-option" data-orientation="auto">Auto</div>
+            </div>
+            <div id="audio-menu" class="menu"></div>
+            <div class="controls">
+                <div class="progress-bar-container" id="progress-container">
+                    <div id="progress-bar"></div>
+                </div>
+                <div class="bottom-controls">
+                    <div class="left-controls">
+                        <button id="prev-btn" class="control-button" title="Previous/Restart">&#9194;</button>
+                        <button id="play-pause-btn" class="control-button" title="Play/Pause">
+                            <svg id="play-pause-icon" viewBox="0 0 36 36"><path d="M12,10 L26,18 L12,26 Z"></path></svg>
+                        </button>
+                        <button id="next-btn" class="control-button" title="Next">&#9193;</button>
+                        <div class="volume-container">
+                            <button id="mute-btn" class="control-button" title="Mute/Unmute">&#128266;</button>
+                            <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="1">
+                        </div>
+                        <span id="time-display">00:00:00 / 00:00:00</span>
+                    </div>
+                    <div class="right-controls">
+                        <button id="settings-btn" class="control-button" title="Settings">&#9881;</button>
+                        <button id="fullscreen-btn" class="control-button" title="Fullscreen">&#9974;</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+<script>
+// --- ELEMENT & STATE DECLARATIONS ---
+const playerContainer = document.getElementById('player-container');
+const video = document.getElementById('local-video');
+const filePickerContainer = document.getElementById('file-picker-container');
+const videoContainer = document.getElementById('video-container');
+const videoFileInput = document.getElementById('video-file-input');
+const urlButton = document.getElementById('url-button');
+const playPauseBtn = document.getElementById('play-pause-btn');
+const playPauseIcon = document.getElementById('play-pause-icon');
+const prevBtn = document.getElementById('prev-btn');
+const nextBtn = document.getElementById('next-btn');
+const muteBtn = document.getElementById('mute-btn');
+const volumeSlider = document.getElementById('volume-slider');
+const timeDisplay = document.getElementById('time-display');
+const progressContainer = document.getElementById('progress-container');
+const progressBar = document.getElementById('progress-bar');
+const settingsBtn = document.getElementById('settings-btn');
+const settingsMenu = document.getElementById('settings-menu');
+const fullscreenBtn = document.getElementById('fullscreen-btn');
+const speedControl = document.getElementById('speed-control');
+const speedLabel = document.getElementById('speed-label');
+const speedMenu = document.getElementById('speed-menu');
+const subtitleFileInput = document.getElementById('subtitle-file-input');
+const pipControl = document.getElementById('pip-control');
+const repeatControl = document.getElementById('repeat-control');
+const repeatLabel = document.getElementById('repeat-label');
+const newFileControl = document.getElementById('new-file-control');
+const orientationControl = document.getElementById('orientation-control');
+const orientationLabel = document.getElementById('orientation-label');
+const orientationMenu = document.getElementById('orientation-menu');
+const audioControl = document.getElementById('audio-control');
+const audioLabel = document.getElementById('audio-label');
+const audioMenu = document.getElementById('audio-menu');
+const showNameControl = document.getElementById('show-name-control');
+const createPlaylistControl = document.getElementById('create-playlist-control');
+const exitControl = document.getElementById('exit-control');
+const gestureOverlay = document.getElementById('gesture-overlay');
+const feedbackIndicator = document.getElementById('feedback-indicator');
+const feedbackIcon = document.getElementById('feedback-icon');
+const feedbackText = document.getElementById('feedback-text');
+
+let controlsTimeout;
+let playlist = [];
+let currentVideoIndex = -1;
+let currentVideoName = '';
+let touchStartX = 0;
+let touchStartY = 0;
+let touchAction = '';
+let lastTap = 0;
+let tapTimeout = null;
+let brightness = 1.0;
+
+// --- PLAYER RESET & SETUP ---
+const resetPlayer = () => {
+    video.pause();
+    if (video.src.startsWith('blob:')) URL.revokeObjectURL(video.src);
+    video.removeAttribute('src');
+    Array.from(video.querySelectorAll('track')).forEach(t => t.remove());
+    video.load();
+    videoContainer.style.display = 'none';
+    filePickerContainer.style.display = 'flex';
+    videoFileInput.value = '';
+    playlist = [];
+    currentVideoIndex = -1;
+    currentVideoName = '';
+    if ('orientation' in screen && typeof screen.orientation.unlock === 'function') {
+        screen.orientation.unlock();
+    }
+    audioControl.style.display = 'none';
+};
+
+const playVideoAtIndex = (index) => {
+    if (index >= 0 && index < playlist.length) {
+        currentVideoIndex = index;
+        const file = playlist[index];
+        currentVideoName = file.name;
+        const fileURL = URL.createObjectURL(file);
+        video.src = fileURL;
+        filePickerContainer.style.display = 'none';
+        videoContainer.style.display = 'block';
+        video.load();
+        video.play();
+    } else {
+        if (!video.loop) {
+            resetPlayer();
+        }
+    }
+};
+
+const showControls = () => {
+    playerContainer.classList.add('controls-active');
+    clearTimeout(controlsTimeout);
+    if (!video.paused) {
+        controlsTimeout = setTimeout(() => {
+            playerContainer.classList.remove('controls-active');
+        }, 3000);
+    }
+};
+
+// --- PLAYBACK LOGIC ---
+videoFileInput.addEventListener('change', (event) => {
+    const files = event.target.files;
+    if (files.length > 0) {
+        playlist = Array.from(files);
+        playVideoAtIndex(0);
+    }
+});
+urlButton.addEventListener('click', () => {
+    const videoUrl = prompt("Please enter the direct URL of the video:");
+    if (videoUrl) {
+        resetPlayer();
+        playlist = [{ name: videoUrl, isUrl: true }];
+        currentVideoName = videoUrl;
+        video.src = videoUrl;
+        filePickerContainer.style.display = 'none';
+        videoContainer.style.display = 'block';
+        video.load();
+        video.play();
+    }
+});
+
+// --- EVENT LISTENERS ---
+playPauseBtn.addEventListener('click', () => video.paused ? video.play() : video.pause());
+video.addEventListener('play', () => {
+    playPauseIcon.style.fill = 'var(--icon-color)';
+    playPauseIcon.innerHTML = '<path d="M12 10 H 16 V 26 H 12 V 10 Z M 20 10 H 24 V 26 H 20 V 10 Z"></path>';
+    showControls();
+});
+video.addEventListener('pause', () => {
+    playPauseIcon.style.fill = 'var(--play-color)';
+    playPauseIcon.innerHTML = '<path d="M12,10 L26,18 L12,26 Z"></path>';
+    playerContainer.classList.add('controls-active');
+    clearTimeout(controlsTimeout);
+});
+video.addEventListener('ended', () => {
+    const nextIndex = currentVideoIndex + 1;
+    playVideoAtIndex(nextIndex);
+});
+video.addEventListener('error', (e) => {
+    const error = video.error;
+    if (!error) return;
+    let errorMessage = "An unknown error occurred.";
+    switch (error.code) {
+        case error.MEDIA_ERR_ABORTED: errorMessage = 'Video playback was aborted.'; break;
+        case error.MEDIA_ERR_NETWORK: errorMessage = 'A network error caused the video download to fail.'; break;
+        case error.MEDIA_ERR_DECODE: errorMessage = 'The video could not be decoded. The file is corrupt or in an unsupported format.'; break;
+        case error.MEDIA_ERR_SRC_NOT_SUPPORTED: errorMessage = 'The video format is not supported.'; break;
+    }
+    alert(`Playback Error: ${errorMessage}`);
+    resetPlayer();
+});
+prevBtn.addEventListener('click', () => {
+    if (video.currentTime > 3) {
+        video.currentTime = 0;
+    } else {
+        playVideoAtIndex(Math.max(0, currentVideoIndex - 1));
+    }
+});
+nextBtn.addEventListener('click', () => {
+    playVideoAtIndex(currentVideoIndex + 1);
+});
+muteBtn.addEventListener('click', () => { video.muted = !video.muted; });
+video.addEventListener('volumechange', () => {
+    volumeSlider.value = video.volume;
+    if (video.muted || video.volume === 0) muteBtn.innerHTML = '&#128263;';
+    else if (video.volume > 0.5) muteBtn.innerHTML = '&#128266;';
+    else muteBtn.innerHTML = '&#128265;';
+});
+volumeSlider.addEventListener('input', (e) => {
+    video.volume = e.target.value;
+    video.muted = e.target.value == 0;
+});
+const formatTime = (timeInSeconds) => {
+    if (isNaN(timeInSeconds) || timeInSeconds < 0) return "00:00:00";
+    const hours = Math.floor(timeInSeconds / 3600);
+    const minutes = Math.floor((timeInSeconds % 3600) / 60);
+    const seconds = Math.floor(timeInSeconds % 60);
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+};
+video.addEventListener('timeupdate', () => {
+    timeDisplay.textContent = `${formatTime(video.currentTime)} / ${formatTime(video.duration || 0)}`;
+    const progressPercent = (video.currentTime / video.duration) * 100;
+    progressBar.style.width = `${progressPercent}%`;
+});
+video.addEventListener('loadeddata', () => {
+    audioControl.style.display = 'none';
+    if (video.audioTracks && video.audioTracks.length > 1) {
+        audioControl.style.display = 'flex';
+        audioMenu.innerHTML = '';
+        for (let i = 0; i < video.audioTracks.length; i++) {
+            const track = video.audioTracks[i];
+            const trackItem = document.createElement('div');
+            trackItem.classList.add('menu-item', 'audio-option');
+            trackItem.textContent = track.label || track.language || `Track ${i + 1}`;
+            trackItem.dataset.trackIndex = i;
+            if (track.enabled) audioLabel.textContent = trackItem.textContent;
+            audioMenu.appendChild(trackItem);
+        }
+    }
+});
+progressContainer.addEventListener('click', (e) => {
+    const rect = progressContainer.getBoundingClientRect();
+    video.currentTime = ((e.clientX - rect.left) / rect.width) * video.duration;
+});
+settingsBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    speedMenu.style.display = 'none';
+    orientationMenu.style.display = 'none';
+    audioMenu.style.display = 'none';
+    settingsMenu.style.display = settingsMenu.style.display === 'block' ? 'none' : 'block';
+});
+speedControl.addEventListener('click', (e) => { e.stopPropagation(); settingsMenu.style.display = 'none'; speedMenu.style.display = 'block'; });
+orientationControl.addEventListener('click', (e) => { e.stopPropagation(); settingsMenu.style.display = 'none'; orientationMenu.style.display = 'block'; });
+audioControl.addEventListener('click', (e) => { e.stopPropagation(); settingsMenu.style.display = 'none'; audioMenu.style.display = 'block'; });
+audioMenu.addEventListener('click', (e) => {
+    if (e.target.classList.contains('audio-option')) {
+        const trackIndex = parseInt(e.target.dataset.trackIndex);
+        for (let i = 0; i < video.audioTracks.length; i++) {
+            video.audioTracks[i].enabled = (i === trackIndex);
+        }
+        audioLabel.textContent = e.target.textContent;
+        audioMenu.style.display = 'none';
+    }
+});
+speedMenu.addEventListener('click', (e) => {
+    if (e.target.classList.contains('speed-option')) {
+        const newSpeed = parseFloat(e.target.dataset.speed);
+        video.playbackRate = newSpeed;
+        speedLabel.textContent = e.target.textContent === 'Normal' ? '1x' : e.target.textContent;
+        speedMenu.style.display = 'none';
+    }
+});
+orientationMenu.addEventListener('click', (e) => {
+    if (e.target.classList.contains('orientation-option')) {
+        const newOrientation = e.target.dataset.orientation;
+        try {
+            if (newOrientation === 'auto') screen.orientation.unlock();
+            else if (newOrientation === 'landscape') screen.orientation.lock('landscape-primary');
+            else if (newOrientation === 'portrait') screen.orientation.lock('portrait-primary');
+            orientationLabel.textContent = e.target.textContent;
+        } catch (err) { console.error("Orientation API could not be used:", err); }
+        orientationMenu.style.display = 'none';
+    }
+});
+document.addEventListener('click', () => {
+    settingsMenu.style.display = 'none';
+    speedMenu.style.display = 'none';
+    orientationMenu.style.display = 'none';
+    audioMenu.style.display = 'none';
+});
+fullscreenBtn.addEventListener('click', () => {
+    if (!document.fullscreenElement) playerContainer.requestFullscreen();
+    else document.exitFullscreen();
+});
+pipControl.addEventListener('click', async () => {
+    try {
+        if (document.pictureInPictureElement) await document.exitPictureInPicture();
+        else if (document.pictureInPictureEnabled) await video.requestPictureInPicture();
+    } catch(err) { console.error("PiP Error:", err); }
+});
+repeatControl.addEventListener('click', () => {
+    video.loop = !video.loop;
+    repeatLabel.textContent = video.loop ? 'On' : 'Off';
+});
+newFileControl.addEventListener('click', resetPlayer);
+subtitleFileInput.addEventListener('change', (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    const createAndApplyTrack = (url) => {
+        Array.from(video.querySelectorAll('track')).forEach(t => t.remove());
+        const trackElement = document.createElement('track');
+        trackElement.kind = 'subtitles';
+        trackElement.src = url;
+        trackElement.default = true;
+        video.appendChild(trackElement);
+        if (video.textTracks.length > 0) {
+            video.textTracks[0].mode = 'showing';
+        }
+    };
+    if (file.name.endsWith('.srt')) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const srtContent = e.target.result;
+            const vttContent = "WEBVTT\n\n" + srtContent.replace(/(\d{2}),(\d{3})/g, "$1.$2").replace(/(\d{2}:\d{2}:\d{2})\s+-->\s+/g, "$1.000 --> ");
+            const vttBlob = new Blob([vttContent], { type: 'text/vtt' });
+            createAndApplyTrack(URL.createObjectURL(vttBlob));
+        };
+        reader.readAsText(file);
+    } else {
+        createAndApplyTrack(URL.createObjectURL(file));
+    }
+});
+showNameControl.addEventListener('click', () => {
+    if (currentVideoName) {
+        alert(`Now Playing:\n${currentVideoName}`);
+    } else {
+        alert('No video is currently loaded.');
+    }
+});
+createPlaylistControl.addEventListener('click', () => {
+    videoFileInput.click();
+});
+exitControl.addEventListener('click', () => {
+    window.close();
+});
+
+// --- GESTURE & OVERLAY CONTROL LOGIC ---
+videoContainer.addEventListener('mousemove', showControls);
+let feedbackTimeout;
+function showFeedback(icon, text) {
+    feedbackIcon.innerHTML = icon;
+    feedbackText.textContent = text;
+    feedbackIndicator.style.display = 'flex';
+    clearTimeout(feedbackTimeout);
+    feedbackTimeout = setTimeout(() => {
+        feedbackIndicator.style.display = 'none';
+    }, 1000);
+}
+function updateBrightness() {
+    gestureOverlay.style.backgroundColor = `rgba(0, 0, 0, ${1 - brightness})`;
+}
+gestureOverlay.addEventListener('touchstart', (e) => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    touchAction = '';
+});
+gestureOverlay.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    const touchCurrentY = e.touches[0].clientY;
+    const deltaY = touchCurrentY - touchStartY;
+    const touchCurrentX = e.touches[0].clientX;
+    const deltaX = touchCurrentX - touchStartX;
+    if (Math.abs(deltaY) > Math.abs(deltaX) + 5) {
+        if (touchAction === '' || touchAction === 'volume' || touchAction === 'brightness') {
+            touchAction = touchStartX < window.innerWidth / 2 ? 'brightness' : 'volume';
+            if (touchAction === 'volume') {
+                const volumeChange = deltaY / -200;
+                video.volume = Math.max(0, Math.min(1, video.volume + volumeChange));
+                showFeedback('&#128266;', `${Math.round(video.volume * 100)}%`);
+            } else {
+                const brightnessChange = deltaY / -200;
+                brightness = Math.max(0, Math.min(1, brightness + brightnessChange));
+                updateBrightness();
+                showFeedback('&#9728;&#65039;', `${Math.round(brightness * 100)}%`);
+            }
+            touchStartY = touchCurrentY;
+        }
+    }
+});
+gestureOverlay.addEventListener('click', (e) => {
+    const currentTime = new Date().getTime();
+    const timeSinceLastTap = currentTime - lastTap;
+    if (timeSinceLastTap < 300 && timeSinceLastTap > 0) { // Double tap
+        clearTimeout(tapTimeout);
+        tapTimeout = null;
+        lastTap = 0;
+        if (e.clientX < videoContainer.clientWidth / 2) {
+            video.currentTime -= 10;
+            showFeedback('&#9194;', '-10s');
+        } else {
+            video.currentTime += 10;
+            showFeedback('&#9193;', '+10s');
+        }
+    } else { // Single tap
+        clearTimeout(tapTimeout);
+        tapTimeout = setTimeout(() => {
+            if (playerContainer.classList.contains('controls-active')) {
+                playerContainer.classList.remove('controls-active');
+            } else {
+                showControls();
+            }
+        }, 300);
+    }
+    lastTap = currentTime;
+});
+
+// --- INITIALIZATION ---
+if (!document.pictureInPictureEnabled) pipControl.style.display = 'none';
+if (!('orientation' in screen)) orientationControl.style.display = 'none';
+playPauseIcon.style.fill = 'var(--play-color)';
+
+</script>
+</body>
+</html>
