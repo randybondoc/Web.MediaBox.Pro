@@ -72,7 +72,6 @@
             opacity: 0;
             transition: opacity 0.3s ease-in-out;
             pointer-events: none;
-            /* REVISED: Using safe-area insets for better mobile display */
             padding-top: 10px;
             padding-right: calc(10px + env(safe-area-inset-right));
             padding-bottom: calc(5px + env(safe-area-inset-bottom));
@@ -117,7 +116,6 @@
 
         .menu {
             position: absolute; 
-            /* REVISED: Using safe-area insets for menus as well */
             bottom: calc(65px + env(safe-area-inset-bottom));
             right: calc(10px + env(safe-area-inset-right));
             background-color: var(--control-bg-color);
@@ -612,11 +610,7 @@ gestureOverlay.addEventListener('click', (e) => {
     } else { // Single tap
         clearTimeout(tapTimeout);
         tapTimeout = setTimeout(() => {
-            if (playerContainer.classList.contains('controls-active')) {
-                playerContainer.classList.remove('controls-active');
-            } else {
-                showControls();
-            }
+            playPauseBtn.click();
         }, 300);
     }
     lastTap = currentTime;
