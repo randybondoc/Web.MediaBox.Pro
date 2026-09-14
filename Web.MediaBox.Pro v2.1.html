@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>Web.MediaBox.Pro v2</title>
+    <!-- hls.js for HLS streaming -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@0.14.17/dist/hls.min.js"></script>
+    <style>
+        :root {
+            --primary:#3498db;
+            --primary-glow:rgba(52,152,219,.35);
+            --play-color:#2ecc71;
+            --bg:#0a0a0a;
+            --surface:rgba(18,18,18,.92);
+            --text:#f5f5f7;
+            --ctrl-bg:rgba(12,12,12,.82);
+            --icon:#fff;
+            --overlay-ctrl-bg:rgba(0,0,0,.54);
+        }
+        html { touch-action:manipulation; }
+        body,html {
+            margin:0; padding:0; width:100%; height:100%;
+            background:var(--bg); color:var(--text);
+            font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+            display:flex; align-items:center; justify-content:center; overflow:hidden;
+        }
+
+        /* ── PLAYER CONTAINER ── */
+        #player-container {
+            width:100%; height:100%; max-width:1200px;
+            position:relative; background:#000;
+            box-shadow:0 12px 40px rgba(0,0,0,.7);
+        }
+        #player-container:fullscreen { max-width:none; width:100%; height:100%; }
+
+        /* ── VIDEO CONTAINER ── */
+        #video-container { width:100%; height:100%; position:relative; background:#000; overflow:hidden; display:none; }
+        video { width:100%; height:100%; display:block; object-fit:contain; }
+        video::-webkit-media-controls { display:none !important; }
+
+        /* ── FILE PICKER ── */
+        #file-picker-container {
+            display:flex; flex-direction:column; align-items:center; justify-content:center;
+            width:100%; height:100%; border:2px dashed var(--primary);
+            box-sizing:border-box; border-radius:12px; padding:20px;
+            transition:background .2s;
+        }
+        #file-picker-container.drag-over { background:rgba(52,152,219,.08); border-color:#2ecc71; }
+        #file-picker-container h2 { margin:0 0 6px; font-size:22px; letter-spacing:-.3px; }
+        #file-picker-container p  { margin:6px 0 0; opacity:.65; font-size:13px; }
+        .picker-button {
+            background:var(--primary); color:#fff;
+            padding:12px 26px; border-radius:8px; cursor:pointer; font-weight:600;
+            transition:background .2s, transform .1s; border:none; margin:8px; font-size:15px;
+        }
+        .picker-button:hover   { background:#2980b9; }
+        .picker-button:active  { transform:scale(.97); }
+        input[type=file]       { display:none; }
+        .picker-row            { display:flex; flex-wrap:wrap; justify-content:center; }
+
+        /* ── BOTTOM CONTROLS ── */
+        .controls {
+            position:absolute; bottom:0; left:0; right:0;
+            background:linear-gradient(to top, rgba(0,0,0,.78) 0%, transparent 100%);
+            display:flex; flex-direction:column; z-index:10;
+            visibility:hidden; opacity:0; transition:opacity .25s ease-in-out;
+            pointer-events:none;
+            padding-top:14px;
+            padding-right:calc(10px + env(safe-area-inset-right));
+            padding-bottom:calc(6px + env(safe-area-inset-bottom));
+            padding-left:calc(10px + env(safe-area-inset-left));
+        }
+        #player-container.controls-active .controls { visibility:visible; opacity:1; pointer-events:all; }
+
+        /* progress bar – now a native range input */
+        .progress-bar-container {
+            width:100%; height:5px; background:rgba(255,255,255,.2); cursor:pointer;
+            margin-bottom:8px; border-radius:3px; overflow:hidden; touch-action:none;
+            transition:height .15s;
+            position:relative;
+        }
+        .progress-bar-container:hover { height:7px; }
+        #progress-slider {
+            -webkit-appearance:none; appearance:none;
+            width:100%; height:100%;
+            position:absolute; top:0; left:0;
+            background:transparent;
+            margin:0; padding:0;
+            cursor:pointer;
+            z-index:2;
+        }
+        #progress-slider::-webkit-slider-thumb {
+            -webkit-appearance:none;
+            width:14px; height:14px;
+            background:var(--primary);
+            border-radius:50%;
+            cursor:pointer;
+            box-shadow:0 0 8px rgba(52,152,219,.6);
+            border:2px solid #fff;
+            transform:scale(1.1);
+        }
+        #progress-slider::-moz-range-thumb {
+            width:14px; height:14px;
+            background:var(--primary);
+            border-radius:50%;
+            cursor:pointer;
+            border:2px solid #fff;
+        }
+        #progress-fill {
+            position:absolute; top:0; left:0; height:100%;
+            background:var(--primary);
+            pointer-events:none;
+            z-index:1;
+            border-radius:3px;
+            width:0%;
+            transition:width .05s linear;
+        }
+
+        .bottom-controls { display:flex; align-items:center; justify-content:space-between; }
+        .left-controls,.right-controls { display:flex; align-items:center; }
+        .control-button {
+            background:none; border:none; color:var(--icon); font-size:22px;
+            cursor:pointer; padding:6px; width:44px; height:44px;
+            display:flex; align-items:center; justify-content:center;
+            -webkit-tap-highlight-color:transparent; border-radius:6px;
+            transition:background .15s;
+        }
+        .control-button:hover { background:rgba(255,255,255,.1); }
+        #play-pause-btn svg { width:32px; height:32px; transition:fill .2s ease; }
+
+        .volume-container { display:flex; align-items:center; }
+        #volume-slider {
+            -webkit-appearance:none; appearance:none; width:78px; height:4px;
+            background:rgba(255,255,255,.25); border-radius:4px; outline:none; margin:0 8px;
+            cursor:pointer;
+        }
+        #volume-slider::-webkit-slider-thumb {
+            -webkit-appearance:none; width:14px; height:14px;
+            background:var(--icon); border-radius:50%; cursor:pointer;
+        }
+        #time-display { font-size:12px; margin-left:6px; user-select:none; white-space:nowrap; opacity:.9; }
+
+        /* ── OVERLAY PLAYBACK CONTROLS (shown in fullscreen / always) ── */
+        #overlay-controls {
+            position:absolute; top:50%; left:50%;
+            transform:translate(-50%,-50%);
+            display:flex; align-items:center; gap:28px;
+            z-index:12;
+            pointer-events:none; opacity:0;
+            transition:opacity .22s ease-in-out;
+        }
+        #player-container.controls-active #overlay-controls {
+            opacity:1; pointer-events:all;
+        }
+        .overlay-btn {
+            background:var(--overlay-ctrl-bg);
+            border:none; color:#fff; cursor:pointer;
+            border-radius:50%; width:58px; height:58px;
+            display:flex; align-items:center; justify-content:center;
+            font-size:20px; -webkit-tap-highlight-color:transparent;
+            backdrop-filter:blur(6px);
+            transition:background .15s, transform .1s;
+            box-shadow:0 2px 10px rgba(0,0,0,.5);
+        }
+        .overlay-btn:hover  { background:rgba(0,0,0,.72); }
+        .overlay-btn:active { transform:scale(.93); }
+        #overlay-play-pause { width:72px; height:72px; }
+        #overlay-play-pause svg { width:36px; height:36px; }
+        .overlay-btn svg    { width:26px; height:26px; }
+        .seek-label {
+            font-size:10px; position:absolute; bottom:-4px; left:50%;
+            transform:translateX(-50%); white-space:nowrap; opacity:.85;
+        }
+        .overlay-btn-wrap { position:relative; display:flex; flex-direction:column; align-items:center; }
+
+        /* ── MENUS ── */
+        .menu {
+            position:absolute;
+            bottom:calc(62px + env(safe-area-inset-bottom));
+            right:calc(10px + env(safe-area-inset-right));
+            background:var(--surface); backdrop-filter:blur(8px);
+            border-radius:10px; padding:8px; width:228px;
+            z-index:20; display:none; border:1px solid rgba(255,255,255,.07);
+            box-shadow:0 8px 24px rgba(0,0,0,.6);
+        }
+        .menu-item {
+            display:flex; justify-content:space-between; align-items:center;
+            padding:9px 10px; cursor:pointer; border-radius:6px; font-size:14px;
+        }
+        .menu-item:hover { background:rgba(255,255,255,.07); }
+        .menu-separator { height:1px; background:rgba(255,255,255,.1); border:none; margin:6px 0; }
+
+        /* ── GESTURE OVERLAY ── */
+        #gesture-overlay { position:absolute; top:0; left:0; width:100%; height:100%; z-index:5; }
+
+        /* ── FEEDBACK ── */
+        #feedback-indicator {
+            position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+            background:rgba(0,0,0,.62); color:#fff; padding:10px 18px;
+            border-radius:10px; font-size:18px; display:none; align-items:center;
+            z-index:25; pointer-events:none; backdrop-filter:blur(4px);
+            border:1px solid rgba(255,255,255,.1);
+        }
+
+        /* ── TITLE BAR (top, auto-hides) ── */
+        #title-bar {
+            position:absolute; top:0; left:0; right:0; z-index:11;
+            padding:14px 14px 32px;
+            background:linear-gradient(to bottom, rgba(0,0,0,.72) 0%, transparent 100%);
+            visibility:hidden; opacity:0; transition:opacity .25s;
+            pointer-events:none; font-size:13px; font-weight:500;
+            white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#ffffffcc;
+        }
+        #player-container.controls-active #title-bar { visibility:visible; opacity:1; }
+
+        /* ── LOADING SPINNER ── */
+        #loading-overlay {
+            position:absolute; top:0; left:0; width:100%; height:100%;
+            display:none; align-items:center; justify-content:center;
+            z-index:15; background:rgba(0,0,0,.5);
+            backdrop-filter:blur(2px);
+        }
+        #loading-overlay.active { display:flex; }
+        .spinner {
+            width:50px; height:50px;
+            border:4px solid rgba(255,255,255,.2);
+            border-top-color:var(--primary);
+            border-radius:50%;
+            animation:spin .8s linear infinite;
+        }
+        @keyframes spin { to { transform:rotate(360deg); } }
+
+        /* ── ERROR OVERLAY ── */
+        #error-overlay {
+            position:absolute; top:0; left:0; width:100%; height:100%;
+            display:none; flex-direction:column; align-items:center; justify-content:center;
+            background:rgba(0,0,0,.85);
+            z-index:30; color:#fff; text-align:center; padding:20px; box-sizing:border-box;
+        }
+        #error-overlay.active { display:flex; }
+        #error-overlay h2 { margin:0 0 10px; color:#ff6b6b; }
+        #error-overlay p  { margin:0 0 20px; opacity:.8; max-width:400px; }
+        #error-overlay button {
+            background:var(--primary); color:#fff; border:none;
+            padding:12px 28px; border-radius:8px; font-size:16px; cursor:pointer;
+            transition:background .2s;
+        }
+        #error-overlay button:hover { background:#2980b9; }
+
+        /* ── DEVELOPER MODAL ── */
+        #developer-modal {
+            position:absolute; top:50%; left:50%; transform:translate(-50%, -50%);
+            width:90%; max-width:600px; max-height:85vh; overflow-y:auto;
+            background:var(--surface); backdrop-filter:blur(12px);
+            border-radius:12px; padding:28px; z-index:50; display:none;
+            border:1px solid rgba(255,255,255,.15); box-shadow:0 15px 40px rgba(0,0,0,.8);
+            color:var(--text); line-height:1.6; font-size:14px; box-sizing:border-box;
+        }
+        #developer-modal.active { display:block; }
+        #developer-modal h2 { color:var(--primary); margin:0 0 5px 0; font-size:24px; }
+        #developer-modal h3 { color:var(--primary); margin:24px 0 10px 0; font-size:16px; border-bottom:1px solid rgba(255,255,255,.1); padding-bottom:5px; }
+        #developer-modal p { margin:10px 0; opacity:0.9; }
+        #developer-modal ul { padding-left:20px; opacity:0.9; margin:0; }
+        #developer-modal li { margin-bottom:8px; }
+        #developer-modal .dev-credit { font-weight:bold; color:#fff; opacity:1; font-size:15px; margin-bottom:20px; }
+        .close-modal-btn {
+            position:absolute; top:16px; right:16px; background:rgba(255,255,255,.1);
+            border:none; color:#fff; width:32px; height:32px; border-radius:50%;
+            cursor:pointer; display:flex; align-items:center; justify-content:center;
+            font-size:16px; transition:background .2s;
+        }
+        .close-modal-btn:hover { background:rgba(255,255,255,.25); }
+        
+        /* QR Code Section */
+        .qr-grid {
+            display:flex; flex-wrap:wrap; gap:16px; justify-content:center; margin-top:20px;
+        }
+        .qr-box {
+            width:115px; text-align:center; background:rgba(255,255,255,.05);
+            padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,.1);
+            transition:transform .2s, background .2s;
+        }
+        .qr-box:hover { transform:translateY(-2px); background:rgba(255,255,255,.08); }
+        .qr-title {
+            display:block; font-size:14px; font-weight:700; margin-bottom:10px; letter-spacing:0.3px;
+        }
+        .qr-box img { 
+            width:86px; height:86px; background:#fff; display:block; 
+            margin:0 auto; object-fit:contain; border-radius:4px;
+        }
+        
+        /* Bank Colors */
+        .color-gcash   { color: #87CEEB; } /* Sky Blue */
+        .color-maribank{ color: #FFA500; } /* Orange */
+        .color-gotyme  { color: #00CED1; } /* Teal-Cyan */
+        .color-maya    { color: #4CAF50; } /* Dark Green (Adjusted for dark mode contrast) */
+
+        /* ── MOBILE ── */
+        @media (max-width:600px) {
+            #volume-slider { width:56px; }
+            .control-button { width:40px; height:40px; }
+            .overlay-btn { width:50px; height:50px; }
+            #overlay-play-pause { width:62px; height:62px; }
+            #developer-modal { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+<div id="player-container">
+
+    <!-- ── FILE PICKER ── -->
+    <div id="file-picker-container">
+        <h2>Web.MediaBox.Pro v2</h2>
+        <div class="picker-row">
+            <input id="video-file-input" type="file" accept="video/*" multiple />
+            <label for="video-file-input" class="picker-button">📂 Select Video(s)</label>
+            <button id="url-button" class="picker-button">🔗 Play from URL</button>
+        </div>
+        <p>Or drag &amp; drop a video file here</p>
+        <p style="margin-top:12px;"><a href="#" id="gh-link" style="color:var(--primary)">Open hosted app ↗</a></p>
+    </div>
+
+    <!-- ── DEVELOPER MODAL ── -->
+    <div id="developer-modal">
+        <button class="close-modal-btn" id="close-dev-modal">✕</button>
+        <h2>Web.MediaBox.Pro v2</h2>
+        <p class="dev-credit">Developed and created by randybondoc</p>
+
+        <p>I worked hard developing this app to address real-world limitations and problems for people trying to multitask with limited capabilities and functions from other 3rd party apps, particularly floating view over anything, and the dedicated audio control that doesn't affect the system or other apps playing. It's built to run free of OS restrictions since no installation is needed, and to play various media formats, including IPTV.</p>
+
+        <h3>App Features & Info</h3>
+        <ul>
+            <li><strong>Universal:</strong> Works on modern phones, tablets, PCs, Macs, Chromebooks and other devices with a modern browser.</li>
+            <li><strong>Zero Installation:</strong> No app installation. No setup. No sign-up. Just open the link and use it instantly.</li>
+            <li><strong>Floating / PiP Video:</strong> Keep watching while working, browsing, coding, chatting or doing anything else.</li>
+            <li><strong>Independent Audio Control:</strong> Control, mute or adjust the player's audio without taking over your device's entire audio experience.</li>
+            <li><strong>URL & IPTV / HLS Playback:</strong> Play compatible videos and streams directly from a URL, including HLS .m3u8 streams commonly used for IPTV.</li>
+            <li><strong>Local Video Playback:</strong> Play videos directly from your device — including multiple files and playlists.</li>
+            <li><strong>Client-Side Privacy:</strong> Your local videos stay on your device. No unnecessary uploading or account required.</li>
+        </ul>
+
+        <h3>Support My Work</h3>
+        <p>If you want to support my work, you can buy me a coffee. I'd appreciate it greatly!</p>
+        <div class="qr-grid">
+            <div class="qr-box">
+                <span class="qr-title color-gcash">GCash</span>
+                <img src="dbank/GCash.jpg" alt="GCash QR" />
+            </div>
+            <div class="qr-box">
+                <span class="qr-title color-maribank">MariBank</span>
+                <img src="dbank/Maribank.jpg" alt="MariBank QR" />
+            </div>
+            <div class="qr-box">
+                <span class="qr-title color-gotyme">GoTyme</span>
+                <img src="dbank/GoTyme.jpg" alt="GoTyme QR" />
+            </div>
+            <div class="qr-box">
+                <span class="qr-title color-maya">Maya</span>
+                <img src="dbank/Maya.jpg" alt="Maya QR" />
+            </div>
+        </div>
+    </div>
+
+    <!-- ── VIDEO CONTAINER ── -->
+    <div id="video-container">
+        <video id="local-video" crossorigin="anonymous"></video>
+        <div id="gesture-overlay" aria-hidden="true"></div>
+        <div id="feedback-indicator"><span id="feedback-icon"></span>&nbsp;<span id="feedback-text"></span></div>
+        <div id="title-bar" aria-hidden="true"></div>
+
+        <!-- Loading Spinner -->
+        <div id="loading-overlay"><div class="spinner"></div></div>
+
+        <!-- Error Overlay -->
+        <div id="error-overlay">
+            <h2>⚠️ Playback Error</h2>
+            <p id="error-message">The video could not be loaded. It may be an unsupported format or the URL might be broken.</p>
+            <button id="error-go-back">Go Back</button>
+        </div>
+
+        <!-- ── OVERLAY CENTRE CONTROLS ── -->
+        <div id="overlay-controls" role="group" aria-label="playback controls">
+            <div class="overlay-btn-wrap">
+                <button id="overlay-prev" class="overlay-btn" aria-label="Previous">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+                </button>
+            </div>
+            <div class="overlay-btn-wrap">
+                <button id="overlay-back" class="overlay-btn" aria-label="Back 10 seconds">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/><text x="12" y="14" text-anchor="middle" font-size="5.5" fill="currentColor" font-family="sans-serif" font-weight="700">10</text></svg>
+                </button>
+                <span class="seek-label" style="color:#ffffffaa;font-size:10px;margin-top:4px;">−10s</span>
+            </div>
+            <div class="overlay-btn-wrap">
+                <button id="overlay-play-pause" class="overlay-btn" aria-label="Play/Pause">
+                    <svg id="overlay-play-icon" viewBox="0 0 36 36" fill="currentColor" aria-hidden="true">
+                        <path d="M12,10 L26,18 L12,26 Z"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="overlay-btn-wrap">
+                <button id="overlay-fwd" class="overlay-btn" aria-label="Forward 10 seconds">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 13c0 3.31-2.69 6-6 6s-6-2.69-6-6 2.69-6 6-6v4l5-5-5-5v4c-4.42 0-8 3.58-8 8s3.58 8 8 8 8-3.58 8-8h-2z"/><text x="12" y="14" text-anchor="middle" font-size="5.5" fill="currentColor" font-family="sans-serif" font-weight="700">10</text></svg>
+                </button>
+                <span class="seek-label" style="color:#ffffffaa;font-size:10px;margin-top:4px;">+10s</span>
+            </div>
+            <div class="overlay-btn-wrap">
+                <button id="overlay-next" class="overlay-btn" aria-label="Next">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zm2-8.14L11.03 12 8 14.14V9.86zM16 6h2v12h-2z"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- ── MENUS ── -->
+        <div id="settings-menu" class="menu" role="menu">
+            <div class="menu-item" id="pip-control"><span>Picture-in-Picture</span><span>›</span></div>
+            <div class="menu-item" id="speed-control"><span>Playback Speed</span><span id="speed-label">1x</span></div>
+            <div class="menu-item" id="repeat-control"><span>Repeat Playlist</span><span id="repeat-label">Off</span></div>
+            <hr class="menu-separator" />
+            <div class="menu-item"><label for="subtitle-file-input" style="width:100%;cursor:pointer;display:flex;justify-content:space-between;"><span>Load Subtitles</span><span>›</span></label>
+                <input id="subtitle-file-input" type="file" accept=".vtt,.srt" />
+            </div>
+            <hr class="menu-separator" />
+            <div class="menu-item" id="show-name-control"><span>Show Video Name</span><span>›</span></div>
+            <hr class="menu-separator" />
+            <div class="menu-item" id="orientation-control"><span>Video Orientation</span><span id="orientation-label">Auto</span></div>
+            <hr class="menu-separator" />
+            <div class="menu-item" id="create-playlist-control"><span>Create Playlist</span><span>›</span></div>
+            <div class="menu-item" id="new-file-control"><span>New Video</span><span>›</span></div>
+            <hr class="menu-separator" />
+            <div class="menu-item" id="developer-control"><span>About / Developer</span><span>›</span></div>
+            <hr class="menu-separator" />
+            <div class="menu-item" id="exit-control"><span>Exit</span><span>›</span></div>
+            <div class="menu-item" id="audio-control" style="display:none;"><span>Audio Track</span><span id="audio-label">Default</span></div>
+        </div>
+        <div id="speed-menu" class="menu">
+            <div class="menu-item speed-option" data-speed="2">2×</div>
+            <div class="menu-item speed-option" data-speed="1.5">1.5×</div>
+            <div class="menu-item speed-option" data-speed="1.25">1.25×</div>
+            <div class="menu-item speed-option" data-speed="1">Normal</div>
+            <div class="menu-item speed-option" data-speed="0.75">0.75×</div>
+            <div class="menu-item speed-option" data-speed="0.5">0.5×</div>
+        </div>
+        <div id="orientation-menu" class="menu">
+            <div class="menu-item orientation-option" data-orientation="landscape">Landscape</div>
+            <div class="menu-item orientation-option" data-orientation="portrait">Portrait</div>
+            <div class="menu-item orientation-option" data-orientation="auto">Auto</div>
+        </div>
+        <div id="audio-menu" class="menu"></div>
+
+        <!-- ── BOTTOM CONTROLS ── -->
+        <div class="controls" role="group" aria-label="player controls">
+            <div class="progress-bar-container" id="progress-container">
+                <div id="progress-fill"></div>
+                <input type="range" id="progress-slider" min="0" max="100" value="0" step="0.1" aria-label="Seek" />
+            </div>
+            <div class="bottom-controls">
+                <div class="left-controls">
+                    <button id="prev-btn" class="control-button" title="Previous/Restart" aria-label="previous">
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+                    </button>
+                    <button id="play-pause-btn" class="control-button" title="Play/Pause" aria-label="play-pause">
+                        <svg id="play-pause-icon" viewBox="0 0 36 36" aria-hidden="true"><path d="M12,10 L26,18 L12,26 Z"></path></svg>
+                    </button>
+                    <button id="next-btn" class="control-button" title="Next" aria-label="next">
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M6 18l8.5-6L6 6v12zm2-8.14L11.03 12 8 14.14V9.86zM16 6h2v12h-2z"/></svg>
+                    </button>
+
+                    <div class="volume-container" aria-hidden="false">
+                        <button id="mute-btn" class="control-button" title="Mute/Unmute" aria-label="mute">🔊</button>
+                        <input id="volume-slider" type="range" min="0" max="1" step="0.01" value="1" />
+                    </div>
+                    <span id="time-display">0:00 / 0:00</span>
+                </div>
+                <div class="right-controls">
+                    <button id="settings-btn" class="control-button" title="Settings" aria-label="settings">
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96a7.1 7.1 0 0 0-1.62-.94l-.36-2.54A.484.484 0 0 0 14 2h-3.84a.484.484 0 0 0-.48.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.476.476 0 0 0-.59.22L3.8 8.47c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.37 1.04.7 1.62.94l.36 2.54c.05.24.27.41.49.41H14c.22 0 .42-.17.47-.41l.36-2.54c.59-.24 1.13-.57 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.09-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+                    </button>
+                    <button id="fullscreen-btn" class="control-button" title="Fullscreen" aria-label="fullscreen">
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22" id="fs-icon"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div><!-- /video-container -->
+</div><!-- /player-container -->
+
+<script>
+/* ===== Elements ===== */
+const playerContainer   = document.getElementById('player-container');
+const video             = document.getElementById('local-video');
+const filePickerContainer = document.getElementById('file-picker-container');
+const videoContainer    = document.getElementById('video-container');
+const videoFileInput    = document.getElementById('video-file-input');
+const urlButton         = document.getElementById('url-button');
+const playPauseBtn      = document.getElementById('play-pause-btn');
+const playPauseIcon     = document.getElementById('play-pause-icon');
+const prevBtn           = document.getElementById('prev-btn');
+const nextBtn           = document.getElementById('next-btn');
+const muteBtn           = document.getElementById('mute-btn');
+const volumeSlider      = document.getElementById('volume-slider');
+const timeDisplay       = document.getElementById('time-display');
+const progressContainer = document.getElementById('progress-container');
+const progressSlider    = document.getElementById('progress-slider');
+const progressFill      = document.getElementById('progress-fill');
+const settingsBtn       = document.getElementById('settings-btn');
+const settingsMenu      = document.getElementById('settings-menu');
+const fullscreenBtn     = document.getElementById('fullscreen-btn');
+const fsIcon            = document.getElementById('fs-icon');
+const speedControl      = document.getElementById('speed-control');
+const speedLabel        = document.getElementById('speed-label');
+const speedMenu         = document.getElementById('speed-menu');
+const subtitleFileInput = document.getElementById('subtitle-file-input');
+const pipControl        = document.getElementById('pip-control');
+const repeatControl     = document.getElementById('repeat-control');
+const repeatLabel       = document.getElementById('repeat-label');
+const newFileControl    = document.getElementById('new-file-control');
+const orientationControl= document.getElementById('orientation-control');
+const orientationLabel  = document.getElementById('orientation-label');
+const orientationMenu   = document.getElementById('orientation-menu');
+const audioControl      = document.getElementById('audio-control');
+const audioLabel        = document.getElementById('audio-label');
+const audioMenu         = document.getElementById('audio-menu');
+const showNameControl   = document.getElementById('show-name-control');
+const createPlaylistControl = document.getElementById('create-playlist-control');
+const exitControl       = document.getElementById('exit-control');
+const gestureOverlay    = document.getElementById('gesture-overlay');
+const feedbackIndicator = document.getElementById('feedback-indicator');
+const feedbackIcon      = document.getElementById('feedback-icon');
+const feedbackText      = document.getElementById('feedback-text');
+const ghLink            = document.getElementById('gh-link');
+const titleBar          = document.getElementById('title-bar');
+const loadingOverlay    = document.getElementById('loading-overlay');
+const errorOverlay      = document.getElementById('error-overlay');
+const errorMessage      = document.getElementById('error-message');
+const errorGoBack       = document.getElementById('error-go-back');
+
+/* Developer modal elements */
+const developerControl  = document.getElementById('developer-control');
+const developerModal    = document.getElementById('developer-modal');
+const closeDevModalBtn  = document.getElementById('close-dev-modal');
+
+/* overlay controls */
+const overlayControls   = document.getElementById('overlay-controls');
+const overlayPlayPause  = document.getElementById('overlay-play-pause');
+const overlayPlayIcon   = document.getElementById('overlay-play-icon');
+const overlayBack       = document.getElementById('overlay-back');
+const overlayFwd        = document.getElementById('overlay-fwd');
+const overlayPrev       = document.getElementById('overlay-prev');
+const overlayNext       = document.getElementById('overlay-next');
+
+/* ===== State ===== */
+let controlsTimeout = null;
+let playlist        = [];
+let currentVideoIndex = -1;
+let currentVideoName  = '';
+let lastTap  = 0;
+let tapTimeout = null;
+let brightness = 1.0;
+let isSeeking  = false;
+let hlsInstance = null; // HLS instance
+
+/* ===== Utilities ===== */
+function formatTime(s) {
+    if (isNaN(s) || s < 0) return '0:00';
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = Math.floor(s % 60);
+    if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+    return `${m}:${String(sec).padStart(2,'0')}`;
+}
+
+function showFeedback(icon, text) {
+    feedbackIcon.innerHTML = icon;
+    feedbackText.textContent = text;
+    feedbackIndicator.style.display = 'flex';
+    clearTimeout(feedbackIndicator._ft);
+    feedbackIndicator._ft = setTimeout(() => feedbackIndicator.style.display = 'none', 900);
+}
+
+function syncPlayIcon(paused) {
+    const play = '<path d="M12,10 L26,18 L12,26 Z"></path>';
+    const pause = '<path d="M12 10 H16 V26 H12 Z M20 10 H24 V26 H20 Z"></path>';
+    const html = paused ? play : pause;
+    playPauseIcon.innerHTML = html;
+    overlayPlayIcon.innerHTML = html;
+    playPauseIcon.style.fill = paused ? 'var(--play-color)' : 'var(--icon)';
+    overlayPlayIcon.style.fill = paused ? 'var(--play-color)' : 'var(--icon)';
+}
+
+/* ===== LocalStorage helpers ===== */
+function getPref(key, def) {
+    try { const v = localStorage.getItem('wmbp_'+key); return v !== null ? JSON.parse(v) : def; } catch(e) { return def; }
+}
+function setPref(key, val) {
+    try { localStorage.setItem('wmbp_'+key, JSON.stringify(val)); } catch(e) {}
+}
+
+/* ===== Player lifecycle ===== */
+function destroyHLS() {
+    if (hlsInstance) {
+        hlsInstance.destroy();
+        hlsInstance = null;
+    }
+}
+
+function resetPlayer() {
+    destroyHLS();
+    video.pause();
+    try { if (video.src && video.src.startsWith('blob:')) URL.revokeObjectURL(video.src); } catch(e) {}
+    video.removeAttribute('src');
+    Array.from(video.querySelectorAll('track')).forEach(t => t.remove());
+    video.load();
+    videoContainer.style.display = 'none';
+    filePickerContainer.style.display = 'flex';
+    videoFileInput.value = '';
+    playlist = []; currentVideoIndex = -1; currentVideoName = '';
+    playerContainer.classList.remove('controls-active');
+    brightness = 1.0; gestureOverlay.style.backgroundColor = '';
+    titleBar.textContent = '';
+    loadingOverlay.classList.remove('active');
+    errorOverlay.classList.remove('active');
+    if ('orientation' in screen && typeof screen.orientation.unlock === 'function')
+        screen.orientation.unlock().catch(() => {});
+}
+
+function showError(msg) {
+    errorMessage.textContent = msg || 'The video could not be loaded. It may be an unsupported format or the URL might be broken.';
+    errorOverlay.classList.add('active');
+    loadingOverlay.classList.remove('active');
+}
+
+errorGoBack.addEventListener('click', resetPlayer);
+
+function playVideoAtIndex(index) {
+    destroyHLS(); // clear any previous HLS
+    errorOverlay.classList.remove('active');
+    loadingOverlay.classList.remove('active');
+
+    if (index >= 0 && index < playlist.length) {
+        currentVideoIndex = index;
+        const file = playlist[index];
+        currentVideoName = file.name || (file.isUrl ? file.name : '');
+        let src = file.isUrl ? file.name : URL.createObjectURL(file);
+        const isHLS = file.isUrl && (file.name.toLowerCase().includes('.m3u8') || file.name.toLowerCase().includes('m3u8'));
+        // For non-HLS, just use native video
+        if (!isHLS) {
+            video.src = src;
+            // If it's a blob, we need to set src
+            if (!file.isUrl) {
+                // blob URL already set
+            }
+            filePickerContainer.style.display = 'none';
+            videoContainer.style.display = 'block';
+            titleBar.textContent = currentVideoName;
+            video.load();
+            const p = video.play();
+            if (p && typeof p.catch === 'function') p.catch(err => {
+                // if autoplay fails, show controls, but not error
+                showControls();
+            });
+        } else {
+            // HLS
+            if (Hls.isSupported()) {
+                hlsInstance = new Hls({
+                    enableWorker: true,
+                    lowLatencyMode: true,
+                });
+                hlsInstance.loadSource(src);
+                hlsInstance.attachMedia(video);
+                hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+                    video.play().catch(() => {});
+                });
+                hlsInstance.on(Hls.Events.ERROR, (event, data) => {
+                    if (data.fatal) {
+                        showError('HLS streaming error: ' + (data.details || 'unknown error'));
+                    }
+                });
+                filePickerContainer.style.display = 'none';
+                videoContainer.style.display = 'block';
+                titleBar.textContent = currentVideoName;
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                // Native HLS support (Safari)
+                video.src = src;
+                video.load();
+                video.play().catch(() => {});
+                filePickerContainer.style.display = 'none';
+                videoContainer.style.display = 'block';
+                titleBar.textContent = currentVideoName;
+            } else {
+                showError('HLS is not supported in this browser.');
+            }
+        }
+    } else {
+        resetPlayer();
+    }
+}
+
+/* ===== Controls show/hide ===== */
+function showControls() {
+    clearTimeout(controlsTimeout);
+    playerContainer.classList.add('controls-active');
+    if (!video.paused) {
+        controlsTimeout = setTimeout(() => playerContainer.classList.remove('controls-active'), 3500);
+    }
+}
+function hideControls() { playerContainer.classList.remove('controls-active'); }
+
+/* ===== File / URL input ===== */
+videoFileInput.addEventListener('change', e => {
+    if (e.target.files && e.target.files.length) {
+        playlist = Array.from(e.target.files);
+        playVideoAtIndex(0);
+    }
+});
+
+urlButton.addEventListener('click', () => {
+    const url = prompt('Enter the direct video URL (supports .mp4, .m3u8, etc.):');
+    if (url) { resetPlayer(); playlist = [{ name: url, isUrl: true }]; playVideoAtIndex(0); }
+});
+
+ghLink.addEventListener('click', ev => {
+    ev.preventDefault();
+    window.open('https://randybondoc.github.io/Web.MediaBox.Pro/web-mediabox-pro.html', '_blank');
+});
+
+/* drag-and-drop on file picker */
+filePickerContainer.addEventListener('dragover', e => { e.preventDefault(); filePickerContainer.classList.add('drag-over'); });
+filePickerContainer.addEventListener('dragleave', () => filePickerContainer.classList.remove('drag-over'));
+filePickerContainer.addEventListener('drop', e => {
+    e.preventDefault();
+    filePickerContainer.classList.remove('drag-over');
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('video/'));
+    if (files.length) { playlist = files; playVideoAtIndex(0); }
+});
+
+/* ===== Playback controls ===== */
+function togglePlay() {
+    if (video.paused) video.play().catch(() => {});
+    else video.pause();
+}
+
+[playPauseBtn, overlayPlayPause].forEach(btn => btn.addEventListener('click', togglePlay));
+[prevBtn, overlayPrev].forEach(btn => btn.addEventListener('click', () => {
+    if (video.currentTime > 3) video.currentTime = 0;
+    else playVideoAtIndex(Math.max(0, currentVideoIndex - 1));
+}));
+[nextBtn, overlayNext].forEach(btn => btn.addEventListener('click', () => playVideoAtIndex(currentVideoIndex + 1)));
+
+overlayBack.addEventListener('click', e => {
+    e.stopPropagation();
+    video.currentTime = Math.max(0, video.currentTime - 10);
+    showFeedback('⏪', '−10s');
+});
+overlayFwd.addEventListener('click', e => {
+    e.stopPropagation();
+    video.currentTime = Math.min(video.duration || 0, video.currentTime + 10);
+    showFeedback('⏩', '+10s');
+});
+
+video.addEventListener('play',  () => { syncPlayIcon(false); showControls(); });
+video.addEventListener('pause', () => {
+    syncPlayIcon(true);
+    playerContainer.classList.add('controls-active');
+    clearTimeout(controlsTimeout);
+});
+video.addEventListener('ended', () => {
+    syncPlayIcon(true);
+    if (currentVideoIndex + 1 < playlist.length) {
+        playVideoAtIndex(currentVideoIndex + 1);
+    } else if (video.loop) {
+        /* loop handled by browser */
+    } else {
+        playerContainer.classList.add('controls-active');
+    }
+});
+
+/* volume */
+muteBtn.addEventListener('click', () => { video.muted = !video.muted; });
+volumeSlider.addEventListener('input', e => {
+    video.volume = parseFloat(e.target.value);
+    video.muted = video.volume === 0;
+    setPref('volume', video.volume);
+});
+video.addEventListener('volumechange', () => {
+    volumeSlider.value = video.volume;
+    if (video.muted || video.volume === 0) muteBtn.innerHTML = '🔇';
+    else if (video.volume > 0.5) muteBtn.innerHTML = '🔊';
+    else muteBtn.innerHTML = '🔉';
+});
+
+/* ===== Progress ===== */
+function updateProgress() {
+    if (video.duration) {
+        const pct = (video.currentTime / video.duration) * 100;
+        progressFill.style.width = pct + '%';
+        progressSlider.value = pct;
+    }
+    timeDisplay.textContent = `${formatTime(video.currentTime)} / ${formatTime(video.duration || 0)}`;
+}
+
+video.addEventListener('timeupdate', updateProgress);
+video.addEventListener('loadedmetadata', updateProgress);
+
+// Seek via slider
+progressSlider.addEventListener('input', function(e) {
+    const pct = parseFloat(this.value);
+    if (video.duration) {
+        isSeeking = true;
+        const time = (pct / 100) * video.duration;
+        video.currentTime = time;
+        progressFill.style.width = pct + '%';
+    }
+});
+progressSlider.addEventListener('change', function() {
+    isSeeking = false;
+    // Ensure progress aligns after seeking
+    updateProgress();
+});
+// Also allow clicking on the container to seek (fallback for mouse)
+progressContainer.addEventListener('click', function(e) {
+    if (e.target === progressSlider) return;
+    const rect = this.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    if (video.duration) {
+        const time = x * video.duration;
+        video.currentTime = time;
+        progressSlider.value = x * 100;
+        progressFill.style.width = (x * 100) + '%';
+    }
+});
+
+/* ===== Settings & menus ===== */
+settingsBtn.addEventListener('click', e => {
+    e.stopPropagation(); hideMenus();
+    settingsMenu.style.display = settingsMenu.style.display === 'block' ? 'none' : 'block';
+});
+
+/* Developer Modal Toggles */
+developerControl.addEventListener('click', e => { 
+    e.stopPropagation(); 
+    hideMenus(); 
+    developerModal.classList.add('active'); 
+});
+closeDevModalBtn.addEventListener('click', () => { 
+    developerModal.classList.remove('active'); 
+});
+
+function hideMenus() {
+    settingsMenu.style.display = 'none'; 
+    speedMenu.style.display = 'none';
+    orientationMenu.style.display = 'none'; 
+    audioMenu.style.display = 'none';
+}
+
+speedControl.addEventListener('click', e => { e.stopPropagation(); settingsMenu.style.display = 'none'; speedMenu.style.display = 'block'; });
+speedMenu.addEventListener('click', e => {
+    const item = e.target.closest('.speed-option');
+    if (item) {
+        const speed = parseFloat(item.dataset.speed);
+        video.playbackRate = speed;
+        speedLabel.textContent = item.textContent === 'Normal' ? '1×' : item.textContent;
+        setPref('playbackRate', speed);
+        speedMenu.style.display = 'none';
+    }
+});
+orientationControl.addEventListener('click', e => { e.stopPropagation(); settingsMenu.style.display = 'none'; orientationMenu.style.display = 'block'; });
+orientationMenu.addEventListener('click', e => {
+    const opt = e.target.closest('.orientation-option');
+    if (!opt) return;
+    try {
+        if (opt.dataset.orientation === 'auto') screen.orientation.unlock();
+        else if (opt.dataset.orientation === 'landscape') screen.orientation.lock('landscape-primary');
+        else screen.orientation.lock('portrait-primary');
+    } catch(err) {}
+    orientationLabel.textContent = opt.textContent;
+    orientationMenu.style.display = 'none';
+});
+audioMenu.addEventListener('click', e => {
+    const opt = e.target.closest('.audio-option');
+    if (!opt) return;
+    const idx = parseInt(opt.dataset.trackIndex);
+    for (let i = 0; i < video.audioTracks.length; i++) video.audioTracks[i].enabled = (i === idx);
+    audioLabel.textContent = opt.textContent;
+    audioMenu.style.display = 'none';
+});
+
+// Close all menus when clicking outside
+document.addEventListener('click', (e) => {
+    // If user clicked inside the developer modal, don't close it
+    if(e.target.closest('#developer-modal')) return;
+    hideMenus();
+});
+
+/* PiP */
+pipControl.addEventListener('click', async () => {
+    try {
+        if (document.pictureInPictureElement) await document.exitPictureInPicture();
+        else if (document.pictureInPictureEnabled) await video.requestPictureInPicture();
+    } catch(err) {}
+});
+
+repeatControl.addEventListener('click', () => {
+    video.loop = !video.loop;
+    repeatLabel.textContent = video.loop ? 'On' : 'Off';
+    setPref('loop', video.loop);
+});
+newFileControl.addEventListener('click', resetPlayer);
+createPlaylistControl && createPlaylistControl.addEventListener('click', () => videoFileInput.click());
+showNameControl && showNameControl.addEventListener('click', () => {
+    if (currentVideoName) alert('Now Playing:\n' + currentVideoName);
+    else alert('No video is currently loaded.');
+});
+exitControl.addEventListener('click', () => { try { window.close(); } catch(e) {} });
+
+subtitleFileInput.addEventListener('change', e => {
+    const file = e.target.files[0]; if (!file) return;
+    const applyVtt = url => {
+        Array.from(video.querySelectorAll('track')).forEach(t => t.remove());
+        const track = document.createElement('track');
+        track.kind = 'subtitles'; track.src = url; track.default = true;
+        video.appendChild(track);
+        setTimeout(() => { if (video.textTracks.length > 0) video.textTracks[0].mode = 'showing'; }, 200);
+    };
+    if (file.name.endsWith('.srt')) {
+        const reader = new FileReader();
+        reader.onload = ev => {
+            const srt = ev.target.result;
+            let vtt = 'WEBVTT\n\n' + srt.replace(/\r+/g,'').replace(/\n{3,}/g,'\n\n').replace(/(\d{2}):(\d{2}):(\d{2}),(\d{3})/g,'$1:$2:$3.$4');
+            applyVtt(URL.createObjectURL(new Blob([vtt], { type: 'text/vtt' })));
+        };
+        reader.readAsText(file);
+    } else { applyVtt(URL.createObjectURL(file)); }
+});
+
+/* ===== Gesture overlay ===== */
+videoContainer.addEventListener('mousemove', showControls);
+videoContainer.addEventListener('touchstart', () => showControls(), { passive: true });
+gestureOverlay.addEventListener('touchstart', e => {
+    touchStartX = e.touches[0].clientX; touchStartY = e.touches[0].clientY; touchAction = '';
+    showControls();
+}, { passive: true });
+
+let touchStartX = 0, touchStartY = 0, touchAction = '';
+gestureOverlay.addEventListener('touchmove', e => {
+    if (e.touches.length === 0) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - touchStartX;
+    const dy = touch.clientY - touchStartY;
+    if (Math.abs(dy) > Math.abs(dx) + 5) {
+        if (touchAction === '' || touchAction === 'volume' || touchAction === 'brightness') {
+            touchAction = (touchStartX < window.innerWidth / 2) ? 'brightness' : 'volume';
+            if (touchAction === 'volume') {
+                const change = -dy / 200;
+                video.volume = Math.max(0, Math.min(1, video.volume + change));
+                showFeedback('🔊', `${Math.round(video.volume * 100)}%`);
+                setPref('volume', video.volume);
+            } else {
+                const change = -dy / 400;
+                brightness = Math.max(0, Math.min(1, brightness + change));
+                gestureOverlay.style.backgroundColor = `rgba(0,0,0,${1 - brightness})`;
+                showFeedback('☀️', `${Math.round(brightness * 100)}%`);
+            }
+            touchStartY = touch.clientY;
+        }
+    }
+    e.preventDefault();
+}, { passive: false });
+
+gestureOverlay.addEventListener('click', e => {
+    const now = Date.now();
+    const sinceLast = now - lastTap;
+    if (sinceLast > 0 && sinceLast < 300) {
+        clearTimeout(tapTimeout); tapTimeout = null; lastTap = 0;
+        const isLeft = (e.clientX < videoContainer.clientWidth / 2);
+        if (isLeft) { video.currentTime = Math.max(0, video.currentTime - 10); showFeedback('⏪', '−10s'); }
+        else { video.currentTime = Math.min(video.duration || 0, video.currentTime + 10); showFeedback('⏩', '+10s'); }
+    } else {
+        clearTimeout(tapTimeout);
+        tapTimeout = setTimeout(() => {
+            if (playerContainer.classList.contains('controls-active')) hideControls();
+            else showControls();
+        }, 250);
+    }
+    lastTap = now;
+});
+
+/* ===== Fullscreen ===== */
+const fsEnterPath = '<path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>';
+const fsExitPath  = '<path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>';
+
+fullscreenBtn.addEventListener('click', () => {
+    if (!document.fullscreenElement) playerContainer.requestFullscreen().catch(() => {});
+    else document.exitFullscreen().catch(() => {});
+});
+document.addEventListener('fullscreenchange', () => {
+    const isFull = !!document.fullscreenElement;
+    fsIcon.innerHTML = isFull ? fsExitPath : fsEnterPath;
+    fullscreenBtn.title = isFull ? 'Exit Fullscreen' : 'Fullscreen';
+});
+
+/* keyboard shortcuts */
+document.addEventListener('keydown', e => {
+    if (!videoContainer.style.display || videoContainer.style.display === 'none') return;
+    if (e.target.tagName === 'INPUT') return;
+    switch (e.key) {
+        case ' ': case 'k': e.preventDefault(); togglePlay(); break;
+        case 'ArrowRight': video.currentTime = Math.min(video.duration || 0, video.currentTime + 10); showFeedback('⏩','+10s'); break;
+        case 'ArrowLeft':  video.currentTime = Math.max(0, video.currentTime - 10); showFeedback('⏪','−10s'); break;
+        case 'ArrowUp':    video.volume = Math.min(1, video.volume + 0.1); setPref('volume', video.volume); break;
+        case 'ArrowDown':  video.volume = Math.max(0, video.volume - 0.1); setPref('volume', video.volume); break;
+        case 'm':          video.muted = !video.muted; break;
+        case 'f':          fullscreenBtn.click(); break;
+    }
+    showControls();
+});
+
+/* ===== Loading spinner events ===== */
+video.addEventListener('waiting', () => {
+    loadingOverlay.classList.add('active');
+});
+video.addEventListener('playing', () => {
+    loadingOverlay.classList.remove('active');
+});
+video.addEventListener('canplay', () => {
+    loadingOverlay.classList.remove('active');
+});
+// Also hide on error
+video.addEventListener('error', (e) => {
+    loadingOverlay.classList.remove('active');
+    // Check if we can display a user-friendly error
+    const errorCode = video.error ? video.error.code : 0;
+    let msg = 'Video playback error.';
+    if (errorCode === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) msg = 'The video format is not supported.';
+    else if (errorCode === MediaError.MEDIA_ERR_NETWORK) msg = 'Network error while loading the video.';
+    else if (errorCode === MediaError.MEDIA_ERR_DECODE) msg = 'The video could not be decoded.';
+    showError(msg);
+});
+
+/* ===== Init ===== */
+if (!document.pictureInPictureEnabled) pipControl.style.display = 'none';
+if (!('orientation' in screen)) orientationControl.style.display = 'none';
+playPauseIcon.style.fill = overlayPlayIcon.style.fill = 'var(--play-color)';
+
+/* ===== Apply stored preferences ===== */
+const storedVolume = getPref('volume', 1);
+video.volume = storedVolume;
+volumeSlider.value = storedVolume;
+const storedRate = getPref('playbackRate', 1);
+video.playbackRate = storedRate;
+speedLabel.textContent = storedRate === 1 ? '1×' : storedRate + '×';
+const storedLoop = getPref('loop', false);
+video.loop = storedLoop;
+repeatLabel.textContent = storedLoop ? 'On' : 'Off';
+
+/* ===== ?url= querystring ===== */
+(function checkQueryForUrl() {
+    const url = new URLSearchParams(window.location.search).get('url');
+    if (url) { playlist = [{ name: url, isUrl: true }]; playVideoAtIndex(0); }
+})();
+</script>
+</body>
+</html>
