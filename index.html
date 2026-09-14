@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>Web.MediaBox.Pro v2</title>
+    <title>Web.MediaBox.Pro v2.1</title>
     <!-- hls.js for HLS streaming -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@0.14.17/dist/hls.min.js"></script>
     <style>
@@ -287,14 +287,41 @@
         }
         .qr-box img { 
             width:86px; height:86px; background:#fff; display:block; 
-            margin:0 auto; object-fit:contain; border-radius:4px;
+            margin:0 auto; object-fit:contain; border-radius:4px; cursor:pointer;
         }
         
         /* Bank Colors */
         .color-gcash   { color: #87CEEB; } /* Sky Blue */
         .color-maribank{ color: #FFA500; } /* Orange */
         .color-gotyme  { color: #00CED1; } /* Teal-Cyan */
-        .color-maya    { color: #4CAF50; } /* Dark Green (Adjusted for dark mode contrast) */
+        .color-maya    { color: #4CAF50; } /* Dark Green */
+
+        /* ── QR LIGHTBOX ── */
+        #qr-lightbox {
+            position:fixed; top:0; left:0; width:100%; height:100%;
+            background:rgba(0,0,0,0.92); z-index:100;
+            display:none; flex-direction:column; align-items:center; justify-content:center;
+            backdrop-filter:blur(10px);
+        }
+        #qr-lightbox.active { display:flex; }
+        #qr-lightbox img {
+            max-width:90%; max-height:60vh; border-radius:12px;
+            box-shadow:0 15px 50px rgba(0,0,0,0.8); background:#fff; padding:10px;
+        }
+        #qr-lightbox-close {
+            position:absolute; top:20px; right:20px;
+            background:rgba(255,255,255,0.15); border:none; color:#fff;
+            width:44px; height:44px; border-radius:50%; cursor:pointer;
+            font-size:20px; transition:background .2s;
+        }
+        #qr-lightbox-close:hover { background:rgba(255,255,255,0.3); }
+        #qr-lightbox-download {
+            margin-top:30px; background:var(--primary); color:#fff; text-decoration:none;
+            padding:14px 28px; border-radius:8px; font-size:16px; font-weight:600;
+            transition:background .2s, transform .1s; box-shadow:0 8px 24px rgba(52,152,219,0.4);
+        }
+        #qr-lightbox-download:hover { background:#2980b9; }
+        #qr-lightbox-download:active { transform:scale(0.96); }
 
         /* ── MOBILE ── */
         @media (max-width:600px) {
@@ -311,7 +338,7 @@
 
     <!-- ── FILE PICKER ── -->
     <div id="file-picker-container">
-        <h2>Web.MediaBox.Pro v2</h2>
+        <h2>Web.MediaBox.Pro v2.1</h2>
         <div class="picker-row">
             <input id="video-file-input" type="file" accept="video/*" multiple />
             <label for="video-file-input" class="picker-button">📂 Select Video(s)</label>
@@ -324,7 +351,7 @@
     <!-- ── DEVELOPER MODAL ── -->
     <div id="developer-modal">
         <button class="close-modal-btn" id="close-dev-modal">✕</button>
-        <h2>Web.MediaBox.Pro v2</h2>
+        <h2>Web.MediaBox.Pro v2.1</h2>
         <p class="dev-credit">Developed and created by randybondoc</p>
 
         <p>I worked hard developing this app to address real-world limitations and problems for people trying to multitask with limited capabilities and functions from other 3rd party apps, particularly floating view over anything, and the dedicated audio control that doesn't affect the system or other apps playing. It's built to run free of OS restrictions since no installation is needed, and to play various media formats, including IPTV.</p>
@@ -342,6 +369,7 @@
 
         <h3>Support My Work</h3>
         <p>If you want to support my work, you can buy me a coffee. I'd appreciate it greatly!</p>
+        <p style="font-size:12px; opacity:0.7;">Click a QR code to enlarge & save.</p>
         <div class="qr-grid">
             <div class="qr-box">
                 <span class="qr-title color-gcash">GCash</span>
@@ -360,6 +388,13 @@
                 <img src="dbank/Maya.jpg" alt="Maya QR" />
             </div>
         </div>
+    </div>
+
+    <!-- ── QR LIGHTBOX ── -->
+    <div id="qr-lightbox">
+        <button id="qr-lightbox-close">✕</button>
+        <img id="qr-lightbox-img" src="" alt="Enlarged QR Code" />
+        <a id="qr-lightbox-download" href="" download>💾 Save Image</a>
     </div>
 
     <!-- ── VIDEO CONTAINER ── -->
@@ -540,6 +575,12 @@ const errorGoBack       = document.getElementById('error-go-back');
 const developerControl  = document.getElementById('developer-control');
 const developerModal    = document.getElementById('developer-modal');
 const closeDevModalBtn  = document.getElementById('close-dev-modal');
+
+/* QR Lightbox Elements */
+const qrLightbox        = document.getElementById('qr-lightbox');
+const qrLightboxImg     = document.getElementById('qr-lightbox-img');
+const qrLightboxClose   = document.getElementById('qr-lightbox-close');
+const qrLightboxDownload= document.getElementById('qr-lightbox-download');
 
 /* overlay controls */
 const overlayControls   = document.getElementById('overlay-controls');
@@ -837,7 +878,7 @@ settingsBtn.addEventListener('click', e => {
     settingsMenu.style.display = settingsMenu.style.display === 'block' ? 'none' : 'block';
 });
 
-/* Developer Modal Toggles */
+/* Developer Modal & QR Lightbox Toggles */
 developerControl.addEventListener('click', e => { 
     e.stopPropagation(); 
     hideMenus(); 
@@ -845,6 +886,27 @@ developerControl.addEventListener('click', e => {
 });
 closeDevModalBtn.addEventListener('click', () => { 
     developerModal.classList.remove('active'); 
+});
+
+// Activate Lightbox when clicking a QR image
+document.querySelectorAll('.qr-box img').forEach(img => {
+    img.addEventListener('click', (e) => {
+        const src = e.target.getAttribute('src');
+        qrLightboxImg.src = src;
+        qrLightboxDownload.href = src;
+        
+        // Extract filename from the src for the download attribute
+        const filename = src.split('/').pop() || 'QR_Code.jpg';
+        qrLightboxDownload.setAttribute('download', filename);
+        
+        qrLightbox.classList.add('active');
+    });
+});
+
+// Close Lightbox
+qrLightboxClose.addEventListener('click', () => qrLightbox.classList.remove('active'));
+qrLightbox.addEventListener('click', (e) => {
+    if (e.target === qrLightbox) qrLightbox.classList.remove('active');
 });
 
 function hideMenus() {
@@ -888,8 +950,8 @@ audioMenu.addEventListener('click', e => {
 
 // Close all menus when clicking outside
 document.addEventListener('click', (e) => {
-    // If user clicked inside the developer modal, don't close it
-    if(e.target.closest('#developer-modal')) return;
+    // If user clicked inside the developer modal or lightbox, don't close it
+    if(e.target.closest('#developer-modal') || e.target.closest('#qr-lightbox')) return;
     hideMenus();
 });
 
@@ -972,11 +1034,27 @@ gestureOverlay.addEventListener('click', e => {
     const now = Date.now();
     const sinceLast = now - lastTap;
     if (sinceLast > 0 && sinceLast < 300) {
+        // Double-tap detected
         clearTimeout(tapTimeout); tapTimeout = null; lastTap = 0;
-        const isLeft = (e.clientX < videoContainer.clientWidth / 2);
-        if (isLeft) { video.currentTime = Math.max(0, video.currentTime - 10); showFeedback('⏪', '−10s'); }
-        else { video.currentTime = Math.min(video.duration || 0, video.currentTime + 10); showFeedback('⏩', '+10s'); }
+        
+        const width = videoContainer.clientWidth;
+        const x = e.clientX;
+        
+        if (x < width * 0.33) {
+            // Left 33%: Rewind 10s
+            video.currentTime = Math.max(0, video.currentTime - 10); 
+            showFeedback('⏪', '−10s');
+        } else if (x > width * 0.66) {
+            // Right 33%: Fast Forward 10s
+            video.currentTime = Math.min(video.duration || 0, video.currentTime + 10); 
+            showFeedback('⏩', '+10s');
+        } else {
+            // Center 34%: Play / Pause
+            togglePlay();
+            showFeedback(video.paused ? '⏸️' : '▶️', video.paused ? 'Pause' : 'Play');
+        }
     } else {
+        // Single-tap detected
         clearTimeout(tapTimeout);
         tapTimeout = setTimeout(() => {
             if (playerContainer.classList.contains('controls-active')) hideControls();
